@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { decodeAudio } from "../src/services/audio.js";
-import { analyze, detectBpm, detectKey } from "../src/services/analyze.js";
-import { encodeMp3, encodeWav, makeSignal } from "./helpers.js";
+import { decodeAudio, encodeMp3, encodeWav, makeSignal } from "./helpers.js";
+import { analyze, detectBpm, detectKey } from "../shared/analyze.js";
 
 describe("BPM detection", () => {
   test("finds 128 BPM", async () => {

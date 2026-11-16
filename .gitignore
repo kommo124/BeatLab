@@ -9,7 +9,12 @@ bun.lockb
 # Database
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 *.sqlite
+
+# Mini app build output
+web/public/main.js
 
 # Logs
 *.log

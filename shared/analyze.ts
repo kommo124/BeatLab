@@ -1,4 +1,4 @@
-import { hannWindow, magnitudes } from "../utils/fft.js";
+import { hannWindow, magnitudes } from "./fft.js";
 
 export type MusicMode = "major" | "minor";
 

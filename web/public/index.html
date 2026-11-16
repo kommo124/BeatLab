@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>BeatLab — BPM & Key</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <div class="logo">🎧</div>
+        <div class="header__text">
+          <h1>BeatLab</h1>
+          <p class="subtitle">BPM &amp; Key анализатор</p>
+        </div>
+      </header>
+
+      <section id="drop" class="drop">
+        <div class="drop__icon">🎵</div>
+        <p class="drop__title">Перетащи трек сюда</p>
+        <p class="drop__hint">mp3 · wav · ogg · m4a · flac · aac</p>
+        <button id="pick" class="btn" type="button">Выбрать файл</button>
+        <input
+          id="file"
+          type="file"
+          accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac,.webm"
+          hidden
+        />
+      </section>
+
+      <section id="progress" class="progress hidden" aria-live="polite">
+        <span class="spinner"></span>
+        <span>Анализирую трек…</span>
+      </section>
+
+      <section id="result" class="result hidden">
+        <div class="cards">
+          <div class="card">
+            <span class="card__label">Темп</span>
+            <span class="card__value" id="bpm">—</span>
+            <span class="card__unit">BPM</span>
+          </div>
+          <div class="card">
+            <span class="card__label">Тональность</span>
+            <span class="card__value card__value--sm" id="key">—</span>
+            <span class="card__unit" id="camelot">—</span>
+          </div>
+        </div>
+
+        <div class="confidence">
+          <div class="confidence__track">
+            <div id="confFill" class="confidence__fill"></div>
+          </div>
+          <span id="confText" class="confidence__text">—</span>
+        </div>
+
+        <p class="note">Точность темпа ±2 BPM · ключ по профилю Крумхансла–Шмуклера</p>
+        <button id="again" class="btn btn--ghost" type="button">
+          Проанализировать другой трек
+        </button>
+      </section>
+
+      <section id="error" class="error hidden"></section>
+
+      <footer class="footer">BeatLab · инструменты для битмейкеров</footer>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

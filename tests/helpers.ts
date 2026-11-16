@@ -1,4 +1,34 @@
 import { Mp3Encoder } from "@breezystack/lamejs";
+import decode from "audio-decode";
+
+export interface DecodedAudio {
+  samples: Float32Array;
+  sampleRate: number;
+}
+
+/** Decode encoded bytes (wav/mp3/…) to mono PCM — test-only helper. */
+export async function decodeAudio(bytes: Uint8Array): Promise<DecodedAudio> {
+  const audio = await decode(bytes.slice().buffer);
+  const channels = audio.channelData;
+  const first = channels[0];
+  if (!first) throw new Error("Audio file contains no channels");
+
+  if (channels.length === 1) {
+    return { samples: first, sampleRate: audio.sampleRate };
+  }
+
+  const mono = new Float32Array(first.length);
+  const gain = 1 / channels.length;
+  for (const channel of channels) {
+    for (let i = 0; i < mono.length; i++) {
+      mono[i] = mono[i]! + (channel[i] ?? 0);
+    }
+  }
+  for (let i = 0; i < mono.length; i++) {
+    mono[i] = mono[i]! * gain;
+  }
+  return { samples: mono, sampleRate: audio.sampleRate };
+}
 
 export interface SignalOptions {
   bpm: number;
