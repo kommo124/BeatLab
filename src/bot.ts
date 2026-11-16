@@ -2,7 +2,7 @@ import { Bot } from "grammy";
 import { config } from "./config.js";
 import type { BotContext } from "./types.js";
 import { appKeyboard } from "./keyboards/main.js";
-import { setLinkMessageId } from "./db/users.js";
+import { findUser, setLinkMessageId } from "./db/users.js";
 import { startCommand } from "./handlers/start.js";
 
 export function createBot(): Bot<BotContext> {
@@ -17,8 +17,15 @@ export function createBot(): Bot<BotContext> {
     ),
   );
 
+  // Only /start (and the notify script) create button messages — text replies
+  // just point at the existing one, so stale copies with dead URLs never pile up.
   bot.on("message:text", async (ctx) => {
     if (ctx.message.text.startsWith("/")) return;
+    const user = await findUser(ctx.from.id);
+    if (user?.linkMessageId != null) {
+      await ctx.reply("Все инструменты — внутри мини-приложения 👇\nЖми кнопку в закреплённом сообщении выше.");
+      return;
+    }
     const sent = await ctx.reply("Все инструменты — внутри мини-приложения 👇", {
       reply_markup: appKeyboard(),
     });

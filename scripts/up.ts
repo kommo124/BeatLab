@@ -1,5 +1,5 @@
 /**
- * One-shot local launcher: mini app + HTTPS tunnel + bot.
+ * One-shot local launcher: mini app + HTTPS tunnel + bot + domain watcher.
  *
  *   bun run up
  *
@@ -7,73 +7,24 @@
  * 2. starts the static server on :3000 (if not running)
  * 3. opens an SSH tunnel (localhost.run) and rewrites WEB_APP_URL in .env
  * 4. (re)starts the bot with the fresh URL
+ * 5. starts the tunnel watcher (keeps the button fresh on domain rotation)
  *
  * Logs are written to .up-logs/*.log (gitignored).
  */
-import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-
-const ROOT = resolve(import.meta.dir, "..");
-const LOG_DIR = join(ROOT, ".up-logs");
-const WEB_URL_PATTERN = /https:\/\/[a-z0-9.-]+\.lhr\.life/;
-
-mkdirSync(LOG_DIR, { recursive: true });
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function killByCommandLine(like: string): Promise<void> {
-  const command =
-    `Get-CimInstance Win32_Process | ` +
-    `Where-Object { $_.CommandLine -like '${like}' } | ` +
-    `ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`;
-  await Bun.spawn(["powershell", "-NoProfile", "-Command", command]).exited;
-}
-
-function startDetached(name: string, command: string[], cwd = ROOT): void {
-  const logPath = join(LOG_DIR, `${name}.log`);
-  writeFileSync(logPath, ""); // fresh log per run so we never match stale output
-  const fd = openSync(logPath, "a");
-  spawn(command[0]!, command.slice(1), {
-    cwd,
-    detached: true,
-    stdio: ["ignore", fd, fd],
-    windowsHide: true,
-  }).unref();
-  writeFileSync(join(LOG_DIR, `${name}.pid`), String(process.pid));
-}
-
-async function waitFor(pattern: RegExp, logFile: string, timeoutMs: number): Promise<string | null> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (existsSync(logFile)) {
-      const match = readFileSync(logFile, "utf8").match(pattern);
-      if (match) return match[0];
-    }
-    await sleep(700);
-  }
-  return null;
-}
-
-async function isWebUp(): Promise<boolean> {
-  try {
-    const res = await fetch("http://127.0.0.1:3000/", { signal: AbortSignal.timeout(2000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-function setEnvValue(key: string, value: string): void {
-  const envPath = join(ROOT, ".env");
-  const env = existsSync(envPath) ? readFileSync(envPath, "utf8") : "";
-  const line = `${key}=${value}`;
-  const next = env.includes(`${key}=`)
-    ? env.replace(new RegExp(`^${key}=.*$`, "m"), line)
-    : `${env.trimEnd()}\n${line}\n`;
-  writeFileSync(envPath, next);
-  process.env[key] = value; // Bun preloads .env at startup — keep memory in sync
-}
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import {
+  isWebUp,
+  killByCommandLine,
+  latestTunnelUrl,
+  LOG_DIR,
+  ROOT,
+  setEnvValue,
+  sleep,
+  startDetached,
+  waitFor,
+  WEB_URL_PATTERN,
+} from "./procs.js";
 
 // --- 1. mini app bundle ---------------------------------------------------
 
@@ -128,19 +79,32 @@ console.log(`🔒 HTTPS: ${tunnelUrl}`);
 console.log("🤖 Запускаю бота…");
 await killByCommandLine("*src/index.ts*");
 startDetached("bot", ["bun", "src/index.ts"]);
-const botUp = await waitFor(/polling for updates/, join(LOG_DIR, "bot.log"), 15_000);
+const botUp = await waitFor(/polling for updates/, join(LOG_DIR, "bot.log"), 30_000);
 if (!botUp) {
   console.error("❌ Бот не поднялся, смотри .up-logs/bot.log");
   process.exit(1);
 }
 
+// --- 5. tunnel watcher ----------------------------------------------------
+
+await killByCommandLine("*watch-tunnel*");
+startDetached("watch", ["bun", "scripts/watch-tunnel.ts"]);
+const watchUp = await waitFor(/Наблюдаю за доменом/, join(LOG_DIR, "watch.log"), 10_000);
+if (!watchUp) {
+  console.error("❌ Наблюдатель не поднялся, смотри .up-logs/watch.log");
+  process.exit(1);
+}
+console.log("👁 Наблюдатель туннеля запущен (авто-обновление кнопки при смене домена)");
+
+// --- notify ---------------------------------------------------------------
+
 console.log("\n✅ Всё запущено:");
-console.log(`   🌐 Мини-приложение: ${tunnelUrl}`);
+console.log(`   🌐 Мини-приложение: ${latestTunnelUrl() ?? tunnelUrl}`);
 console.log("   🤖 Бот: @BeatLab_bot → /start → «🎧 Открыть BeatLab»");
 
 const { notifyUsers } = await import("./notify");
 const notified = await notifyUsers();
 if (notified > 0) {
-  console.log(`   📨 Свежая кнопка отправлена ${notified} пользователю(-ям)`);
+  console.log(`   📨 Кнопка обновлена у ${notified} пользователей`);
 }
 console.log("\nЛоги: .up-logs/   Остановить: закройте процессы ssh/bun в диспетчере задач");

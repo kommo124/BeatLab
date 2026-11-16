@@ -2,8 +2,8 @@
  * Keeps the mini-app button fresh for every user.
  *
  * The button lives in ONE persistent message per user; when the tunnel
- * domain changes (`bun run up`), that message's inline keyboard is edited
- * in place — so users never accumulate stale "no tunnel" buttons.
+ * domain changes, that message is edited in place — so users never
+ * accumulate stale "no tunnel" buttons.
  *
  *   bun scripts/notify.ts
  */
@@ -15,19 +15,28 @@ const API = TOKEN ? `https://api.telegram.org/bot${TOKEN}` : null;
 
 const TEXT = "🔗 Мини-приложение BeatLab — открывай по кнопке:";
 
-async function api<T>(method: string, payload: Record<string, unknown>): Promise<T | null> {
-  if (!API) return null;
-  const res = await fetch(`${API}/${method}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    console.warn(`⚠️ ${method} failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
-    return null;
+type ApiResult<T> = { ok: true; result: T } | { ok: false; description: string };
+
+async function api<T>(
+  method: string,
+  payload: Record<string, unknown>,
+): Promise<ApiResult<T>> {
+  try {
+    const res = await fetch(`${API}/${method}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = (await res.json()) as {
+      ok: boolean;
+      result?: T;
+      description?: string;
+    };
+    if (body.ok) return { ok: true, result: body.result as T };
+    return { ok: false, description: body.description ?? `HTTP ${res.status}` };
+  } catch (err) {
+    return { ok: false, description: String(err) };
   }
-  const body = (await res.json()) as { result: T };
-  return body.result;
 }
 
 export async function notifyUsers(): Promise<number> {
@@ -40,17 +49,19 @@ export async function notifyUsers(): Promise<number> {
   for (const { telegramId, linkMessageId } of listUsersWithLink()) {
     const markup = { reply_markup: appKeyboard() };
 
-    // Try to refresh the existing message first (Telegram limits edits to 48h)
+    // Refresh the existing message first (Telegram limits edits to 48h)
     if (linkMessageId != null) {
-      const edited = await api<boolean>("editMessageReplyMarkup", {
+      const edited = await api<boolean>("editMessageText", {
         chat_id: telegramId,
         message_id: linkMessageId,
+        text: TEXT,
         ...markup,
       });
-      if (edited) {
+      if (edited.ok || edited.description.includes("not modified")) {
         updated++;
         continue;
       }
+      console.warn(`⚠️ edit ${linkMessageId} failed for ${telegramId}: ${edited.description}`);
     }
 
     const sent = await api<{ message_id: number }>("sendMessage", {
@@ -58,9 +69,11 @@ export async function notifyUsers(): Promise<number> {
       text: TEXT,
       ...markup,
     });
-    if (sent) {
-      await setLinkMessageId(telegramId, sent.message_id);
+    if (sent.ok) {
+      await setLinkMessageId(telegramId, sent.result.message_id);
       updated++;
+    } else {
+      console.warn(`⚠️ send failed for ${telegramId}: ${sent.description}`);
     }
   }
   return updated;

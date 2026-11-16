@@ -19,4 +19,13 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-export const config = parsed.data;
+export const config = {
+  ...parsed.data,
+  /**
+   * The tunnel URL changes at runtime (domain rotation) — re-read
+   * process.env on every access so the button never bakes a dead address.
+   */
+  get WEB_APP_URL(): string {
+    return process.env.WEB_APP_URL ?? parsed.data.WEB_APP_URL;
+  },
+};
