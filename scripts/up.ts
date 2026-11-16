@@ -136,4 +136,10 @@ if (!botUp) {
 console.log("\n✅ Всё запущено:");
 console.log(`   🌐 Мини-приложение: ${tunnelUrl}`);
 console.log("   🤖 Бот: @BeatLab_bot → /start → «🎧 Открыть BeatLab»");
+
+const { notifyUsers } = await import("./notify");
+const notified = await notifyUsers();
+if (notified > 0) {
+  console.log(`   📨 Свежая кнопка отправлена ${notified} пользователю(-ям)`);
+}
 console.log("\nЛоги: .up-logs/   Остановить: закройте процессы ssh/bun в диспетчере задач");
