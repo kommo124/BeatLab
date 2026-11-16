@@ -8,6 +8,8 @@ export const users = sqliteTable("users", {
   lastName: text("last_name"),
   daw: text("daw"),
   genre: text("genre"),
+  /** Id of the message that holds the updatable mini-app button. */
+  linkMessageId: integer("link_message_id"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),

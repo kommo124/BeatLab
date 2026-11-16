@@ -1,6 +1,6 @@
 import { escapeHtml, type BotContext } from "../types.js";
-import { mainKeyboard } from "../keyboards/main.js";
-import { upsertUser } from "../db/users.js";
+import { appKeyboard } from "../keyboards/main.js";
+import { setLinkMessageId, upsertUser } from "../db/users.js";
 
 export async function startCommand(ctx: BotContext) {
   const tgUser = ctx.from;
@@ -15,16 +15,18 @@ export async function startCommand(ctx: BotContext) {
 
   const name = tgUser.first_name || tgUser.username || "брат по груву";
 
-  await ctx.reply(
+  const sent = await ctx.reply(
     `👋 <b>Привет, ${escapeHtml(name)}!</b>\n\n` +
       `Я <b>BeatLab</b> — твой помощник в работе над треками:\n` +
       `• 🎛 полезные инструменты и калькуляторы\n` +
       `• 🎚 библиотека сэмплов и пресетов\n` +
       `• 🤝 биржа совместной работы\n\n` +
-      `Открывай мини-приложение, чтобы погрузиться в работу 👇`,
+      `Открывай мини-приложение по кнопке ниже 👇`,
     {
       parse_mode: "HTML",
-      reply_markup: mainKeyboard(),
+      reply_markup: appKeyboard(),
     },
   );
+
+  await setLinkMessageId(tgUser.id, sent.message_id);
 }
