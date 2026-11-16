@@ -72,6 +72,7 @@ function setEnvValue(key: string, value: string): void {
     ? env.replace(new RegExp(`^${key}=.*$`, "m"), line)
     : `${env.trimEnd()}\n${line}\n`;
   writeFileSync(envPath, next);
+  process.env[key] = value; // Bun preloads .env at startup — keep memory in sync
 }
 
 // --- 1. mini app bundle ---------------------------------------------------
