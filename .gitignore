@@ -16,6 +16,10 @@ bun.lockb
 # Mini app build output
 web/public/main.js
 
+# Local tools
+.tools/
+.up-logs/
+
 # Logs
 *.log
 

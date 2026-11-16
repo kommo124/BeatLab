@@ -11,6 +11,7 @@
     "test": "bun test",
     "web:build": "bun build web/main.ts --outdir web/public",
     "web:serve": "bun src/web/server.ts",
+    "up": "bun scripts/up.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun src/db/migrate.ts"
   },
